@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Waypost</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- ══ Title ══ -->
+<div id="title" class="screen">
+  <div class="title-card">
+    <h1>WAYPOST</h1>
+    <p class="subtitle">a small world, delivered daily</p>
+    <button id="btn-start" class="big">Begin your route</button>
+    <button id="btn-continue" class="big hidden">Continue route</button>
+    <p class="hint">WASD move &nbsp;·&nbsp; Shift run &nbsp;·&nbsp; drag to look &nbsp;·&nbsp; E talk / deliver</p>
+  </div>
+</div>
+
+<!-- ══ Loading ══ -->
+<div id="loading" class="screen">
+  <div class="title-card"><h1>WAYPOST</h1><p class="subtitle" id="load-msg">folding the map…</p></div>
+</div>
+
+<!-- ══ HUD ══ -->
+<div id="hud" class="hidden">
+  <div id="compass"><div id="compass-strip"></div><div id="compass-needle">▾</div></div>
+  <div id="stamps-pill">✉ <span id="stamp-count">0</span></div>
+  <div id="zone-name"></div>
+  <div id="job-card" class="hidden">
+    <div id="job-title"></div>
+    <div id="job-desc"></div>
+    <div id="job-timer" class="hidden"><div id="icecream">🍦</div><div id="melt-bar"><div id="melt-fill"></div></div></div>
+  </div>
+  <div id="prompt" class="hidden">E</div>
+  <div id="toast" class="hidden"></div>
+  <button id="btn-pause" title="pause">☰</button>
+</div>
+
+<!-- ══ Dialogue ══ -->
+<div id="dialogue" class="hidden">
+  <div id="dlg-name"></div>
+  <div id="dlg-text"></div>
+  <div id="dlg-actions"></div>
+</div>
+
+<!-- ══ Job board / ledger / album / shop ══ -->
+<div id="modal" class="screen hidden">
+  <div id="modal-box">
+    <div id="modal-tabs">
+      <button data-tab="board" class="tab">Job Board</button>
+      <button data-tab="ledger" class="tab">Ledger</button>
+      <button data-tab="album" class="tab">Stamp Album</button>
+      <button data-tab="shop" class="tab">Post Shop</button>
+    </div>
+    <div id="modal-body"></div>
+    <button id="modal-close">✕</button>
+  </div>
+</div>
+
+<!-- ══ Pause / settings ══ -->
+<div id="pause" class="screen hidden">
+  <div class="title-card">
+    <h2>Paused</h2>
+    <button id="btn-resume" class="big">Resume</button>
+    <div class="settings-row"><label>Sound</label><button id="set-sound" class="pill">On</button></div>
+    <div class="settings-row"><label>Quality</label><button id="set-quality" class="pill">High</button></div>
+    <div class="settings-row"><label>Help</label><button id="set-help" class="pill">?</button></div>
+    <button id="btn-credits" class="pill">Credits</button>
+    <button id="btn-title" class="pill">Save &amp; quit to title</button>
+  </div>
+</div>
+
+<div id="help" class="screen hidden">
+  <div class="title-card left">
+    <h2>Courier's handbook</h2>
+    <p><b>WASD / arrows</b> walk · <b>Shift</b> run · <b>drag mouse</b> orbit camera</p>
+    <p><b>E</b> talk, pick up, deliver · <b>Tab</b> ledger &amp; job board · <b>Esc</b> pause</p>
+    <p>The compass ribbon at the top points to your active delivery — <i>the short way round</i>. Trust the compass over the signposts; the world is smaller than it looks.</p>
+    <p>Fragile parcels dislike running and bicycles. Urgent parcels melt. Mystery parcels… ask the postmaster.</p>
+    <button id="btn-help-close" class="big">Back</button>
+  </div>
+</div>
+
+<div id="credits" class="screen hidden">
+  <div class="title-card">
+    <h2>Waypost</h2>
+    <p class="subtitle">made for the small world by its second courier</p>
+    <p>design &amp; code — you and your friendly AI courier<br>engine — three.js<br>everyone else — the twelve of them, who were patient</p>
+    <button id="btn-credits-close" class="big">Back</button>
+  </div>
+</div>
+
+<!-- ══ Mobile controls ══ -->
+<div id="mobile" class="hidden">
+  <div id="joystick"><div id="stick"></div></div>
+  <button id="m-run">RUN</button>
+  <button id="m-act">E</button>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
