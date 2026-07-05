@@ -599,15 +599,15 @@ export function updateWorld(dt, G, vibe, camera) {
   W.sun.position.set(G.px + _sunDir.x * 160, _sunDir.y * 160, G.pz + _sunDir.z * 160);
   W.sun.target.position.set(G.px, 0, G.pz);
   W.sun.color.copy(vibe.sun);
-  W.sun.intensity = 0.35 + vibe.daylight * 1.35;
+  W.sun.intensity = 0.5 + vibe.daylight * 1.25;
   W.hemi.color.copy(vibe.skyTop);
   W.hemi.groundColor.copy(vibe.fog);
-  W.hemi.intensity = 0.35 + vibe.daylight * 0.4;
+  W.hemi.intensity = 0.62 + vibe.daylight * 0.3;
 
   // windows & neon wake at dusk
   const n = vibe.night;
-  W.winMat.color.setScalar(0.3 + n * 1.15);
-  W.neonMat.color.setScalar(0.12 + n * 1.6);
+  W.winMat.color.setScalar(0.3 + n * 1.8);
+  W.neonMat.color.setScalar(0.15 + n * 2.6);
 
   // windmills turn with the wind
   for (const r of W.rotors) r.children.forEach((arm, i) => { arm.rotation.z += dt * 0.5; });

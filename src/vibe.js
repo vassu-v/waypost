@@ -97,4 +97,6 @@ export function applyGrade() {
     document.body.appendChild(gradeEl);
   }
   gradeEl.style.background = '#' + vibe.grade.getHexString();
+  // multiply grading is film at noon, mud at midnight — ease it off at night
+  gradeEl.style.opacity = (0.5 - vibe.night * 0.3).toFixed(2);
 }

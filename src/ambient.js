@@ -55,7 +55,7 @@ function cat(color) {
   const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.8, 5), toon(color));
   tail.position.set(-0.5, 0.6, 0); tail.rotation.z = 0.8;
   g.add(body, head, tail);
-  g.userData.tail = tail;
+  g.tailMesh = tail;
   return g;
 }
 
@@ -169,7 +169,7 @@ export function updateAmbient(dt, G, vibe) {
     const p = nearestCopy(u.x, u.z, G.px, G.pz);
     c.position.set(p.x, u.y, p.z);
     c.rotation.y = u.ry;
-    c.userData.tail.rotation.x = Math.sin(t * 1.7) * 0.4;      // the tail never sleeps
+    c.tailMesh.rotation.x = Math.sin(t * 1.7) * 0.4;           // the tail never sleeps
   }
   for (const p of crowd) {
     const u = p.userData;
