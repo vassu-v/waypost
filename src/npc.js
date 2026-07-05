@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { nearestCopy, wrapDist, wrapDelta } from './wrap.js';
 import { NPCS, FERRY } from './layout.js';
 import { MAP } from './wrap.js';
-import { toon } from './shader.js';
+import { toon, addOutlines } from './shader.js';
 import { G } from './state.js';
 
 export const npcs = [];      // { def, group, x, z, tx, tz, facing }
@@ -50,6 +50,7 @@ function buildNPC(def) {
   }
   g.scale.setScalar(scale);
   g.traverse(o => { o.castShadow = true; });
+  addOutlines(g, 0.04);
   return g;
 }
 
@@ -74,6 +75,7 @@ export function initNPCs(scene) {
   stack.position.set(-1.6, 3.1, 0);
   ferry.add(hull, deck, cabin, stack);
   ferry.traverse(o => { o.castShadow = true; });
+  addOutlines(ferry, 0.05);
   scene.add(ferry);
 }
 

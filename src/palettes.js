@@ -5,7 +5,8 @@
 export const ZONES = [
   {
     key: 'harbor', name: 'Harbor Town', cx: 200, cz: 255, radius: 78,
-    colors: { water:'#2E8B8B', walls:'#F5EBDC', roofs:'#C1502E', lamps:'#E8B04B', stone:'#5B7A8C' },
+    colors: { water:'#2E8B8B', deep:'#1E7CB0', shallow:'#5FD0C8', foam:'#F4FBF6',
+              walls:'#F5EBDC', roofs:'#C1502E', lamps:'#E8B04B', stone:'#5B7A8C' },
     sky:   { day:['#8FD4D9','#F2E8CE'], night:['#16283C','#3A4A66'] },   // [zenith, horizon]
     fog:   { day:'#CBE4DC', night:'#1C2A3C' },
     sun:   { day:'#FFF0D0', night:'#93A8CC' },
@@ -15,7 +16,8 @@ export const ZONES = [
   },
   {
     key: 'farms', name: 'Terraced Farms', cx: 65, cz: 165, radius: 75,
-    colors: { fields:'#D9A441', hedges:'#8A9A3B', mills:'#F2E3C6', soil:'#B5651D', pond:'#7FB3C8' },
+    colors: { fields:'#D9A441', hedges:'#8A9A3B', mills:'#F2E3C6', soil:'#B5651D', pond:'#7FB3C8',
+              canopy:'#5E8C4A', canopyHi:'#82B356', autumn:'#D98E3F', autumnHi:'#EBAD57' },
     sky:   { day:['#9FD0E8','#F7E9BE'], night:['#1A2A40','#40506A'] },
     fog:   { day:'#E8DCB4', night:'#202E42' },
     sun:   { day:'#FFEEC2', night:'#8FA4C8' },
@@ -102,3 +104,6 @@ export const ZONE = Object.fromEntries(ZONES.map(z => [z.key, z]));
 
 // UI accents (paper-and-ink post office look — mirrors style.css)
 export const UI = { paper:'#F8F1E2', ink:'#3A3226', accent:'#C1502E', gold:'#E8B04B' };
+
+// shared sky furniture (clouds drift over every zone)
+export const SKY = { cloud:'#FBF9F0', cloudShade:'#D8DFDB' };

@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { MAP, wrap, wrapDist, wrapDelta } from './wrap.js';
 import { G } from './state.js';
-import { toon, shared } from './shader.js';
+import { toon, shared, addOutlines } from './shader.js';
 import { W } from './world.js';
 
 export const SCARVES = [
@@ -66,6 +66,7 @@ export function initPlayer(scene, camera) {
 
   g.add(body, head, cap, brim, satchel, strap, wrapSeg);
   g.traverse(o => { o.castShadow = true; });
+  addOutlines(g, 0.04);
 
   // bicycle (hidden until bought + auto while moving on roads)
   const bike = new THREE.Group();

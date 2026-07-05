@@ -9,6 +9,15 @@ html,body { width:100%; height:100%; overflow:hidden; background:#1a2430;
 body::after { content:''; position:fixed; inset:0; pointer-events:none; z-index:5;
   box-shadow:inset 0 0 18vmin rgba(20,16,32,.38); }
 
+/* film grain — the faint tooth that keeps flat fills from feeling sterile */
+body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index:6;
+  opacity:.05; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+/* rounded diorama frame — the picture-book border around the whole view */
+html::after { content:''; position:fixed; inset:0; pointer-events:none; z-index:30;
+  border-radius:16px; box-shadow:0 0 0 40px #12100e, inset 0 0 0 1px rgba(248,241,226,.08); }
+
 .screen { position:fixed; inset:0; z-index:20; display:flex; align-items:center;
   justify-content:center; }
 #title,#loading { background:transparent; }

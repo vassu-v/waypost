@@ -3,6 +3,7 @@
 
 import * as THREE from 'three';
 import { wrapDist } from './wrap.js';
+import { shared } from './shader.js';
 import { G, save, load, hasSave, wipe } from './state.js';
 import { BOARD, SPAWN } from './layout.js';
 import { updateVibe, applyGrade, vibe } from './vibe.js';
@@ -20,7 +21,7 @@ const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.12;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -79,6 +80,7 @@ document.getElementById('title').addEventListener('pointerdown', () => {
 }, { once: true });
 
 // ── the loop ──
+window.G = G;                      // dev console access (harmless in prod)
 const clock = new THREE.Clock();
 let saveTimer = 0, uiTimer = 0;
 
@@ -86,6 +88,7 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
   G.dt = dt; G.time += dt;
+  shared.uWind.value = G.time;          // the global breath — sways all foliage
 
   const playing = G.mode === 'play' || G.mode === 'dialogue' || G.mode === 'modal' || G.mode === 'finale' || G.mode === 'finale-credits';
 
@@ -104,7 +107,7 @@ function frame() {
     const a = G.time * 0.045;
     camera.position.set(BOARD.x + Math.cos(a) * 26, 11 + Math.sin(G.time * 0.1) * 2, BOARD.z + Math.sin(a) * 26);
     camera.lookAt(BOARD.x, 4, BOARD.z);
-    import('./shader.js').then(m => m.shared.uCamPos.value.copy(camera.position));
+    shared.uCamPos.value.copy(camera.position);
   } else if (G.mode === 'play' || G.mode === 'finale') {
     updatePlayer(dt, camera);
   }

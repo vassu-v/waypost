@@ -109,6 +109,26 @@ Uniforms are module-level singletons in `shared` (`uCurve`, `uWind`,
 `uWindAmp`, `uCamPos`) — main/player/weather write them; every material reads
 them. `toon(color, opts)` is the cached material factory.
 
+**The ink-outline pass** (`src/shader.js`). The high-quality-low-poly look is
+inverted-hull outlines: the merged `static`/`tree` buckets get a second
+BackSide draw whose vertices are pushed along a *smoothed* normal attribute
+(`smoothNormals` welds coincident verts so flat-shaded hulls don't crack),
+thickness grows slightly with camera distance. Characters/ferry use
+`addOutlines(group)` — per-part hulls scaled from each primitive's bounding
+box. Ink is **unlit** MeshBasicMaterial, so every ink material registers in
+`inks[]` and `updateWorld` multiplies it by daylight — skip that and outlines
+glow at night. Bucket ink is vertexColors × 0.26 (tinted lines, not black).
+
+**Painted water** (`src/world.js`). The bay is a ShaderMaterial: depth
+gradient (`harbor.colors.shallow→deep`), scalloped foam lines at each bank,
+gentle waves, night dimming, three.js fog chunks included manually. All wave
+frequencies must be `2πn/MAP` or the surface seams at the wrap. Uniforms
+`uTime`/`uNight` are fed by `updateWorld`; `uCurve`/`uCamPos` are the shared
+singletons.
+
+**The wind actually blows** because `main.js` advances `shared.uWind` each
+frame — if sway ever freezes, check that line first.
+
 **The vibe pipeline** (order matters, per frame in `main.js`):
 `updateVibe(px, pz, tod)` computes normalized zone weights + blended colors →
 `updateWeather` *mutates* the vibe result (fog closer, sun dimmer) →

@@ -19,7 +19,7 @@ export const shared = {
 let _gradient = null;
 export function gradientMap() {
   if (_gradient) return _gradient;
-  const data = new Uint8Array([90, 175, 255, 255]);   // shadow / mid / lit / lit
+  const data = new Uint8Array([80, 172, 255, 255]);   // shadow / mid / lit / lit
   _gradient = new THREE.DataTexture(data, 4, 1, THREE.RedFormat);
   _gradient.minFilter = _gradient.magFilter = THREE.NearestFilter;
   _gradient.needsUpdate = true;
@@ -29,7 +29,10 @@ export function gradientMap() {
 // Patch any material with curvature (+ optional wind sway).
 // sway: 0 = rigid; ~0.15 tree; ~0.5 laundry/reeds. swayBase = height where
 // sway begins (trunks stay planted).
-export function patch(mat, { sway = 0, swayBase = 0.4 } = {}) {
+// outline: inverted-hull ink pass — pushes vertices out along the smoothed
+// 'sNormal' attribute (see smoothNormals), thickened slightly with camera
+// distance so lines hold their weight across the diorama.
+export function patch(mat, { sway = 0, swayBase = 0.4, outline = 0 } = {}) {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uCurve  = shared.uCurve;
     shader.uniforms.uWind   = shared.uWind;
@@ -39,7 +42,13 @@ export function patch(mat, { sway = 0, swayBase = 0.4 } = {}) {
     shader.vertexShader = `
       uniform float uCurve; uniform float uWind; uniform float uWindAmp;
       uniform vec3 uCamPos;
+      ${outline > 0 ? 'attribute vec3 sNormal;' : ''}
     ` + shader.vertexShader.replace('#include <project_vertex>', `
+      ${outline > 0 ? `
+      {
+        float dCam = distance((modelMatrix * vec4(transformed, 1.0)).xz, uCamPos.xz);
+        transformed += sNormal * (${outline.toFixed(3)} * (0.6 + dCam * 0.012));
+      }` : ''}
       vec4 wpos = vec4( transformed, 1.0 );
       #ifdef USE_INSTANCING
         wpos = instanceMatrix * wpos;
@@ -66,9 +75,78 @@ export function patch(mat, { sway = 0, swayBase = 0.4 } = {}) {
       gl_Position = projectionMatrix * mvPosition;
     `);
   };
-  // distinct programs per (sway, swayBase) variant
-  mat.customProgramCacheKey = () => `wp:${sway}:${swayBase}`;
+  // distinct programs per (sway, swayBase, outline) variant
+  mat.customProgramCacheKey = () => `wp:${sway}:${swayBase}:${outline}`;
   return mat;
+}
+
+// ── ink outlines ──
+// Weld coincident vertices of a (non-indexed, flat-shaded) geometry and store
+// the position-averaged normal as 'sNormal' — an inverted hull expanded along
+// these stays watertight where flat face normals would crack at every edge.
+export function smoothNormals(geo) {
+  const pos = geo.attributes.position, nor = geo.attributes.normal, n = pos.count;
+  const sn = new Float32Array(n * 3);
+  const map = new Map();
+  const pa = pos.array, na = nor.array;
+  for (let i = 0; i < n; i++) {
+    const k = `${Math.round(pa[i*3]*100)},${Math.round(pa[i*3+1]*100)},${Math.round(pa[i*3+2]*100)}`;
+    let a = map.get(k);
+    if (!a) { a = [0, 0, 0, []]; map.set(k, a); }
+    a[0] += na[i*3]; a[1] += na[i*3+1]; a[2] += na[i*3+2]; a[3].push(i);
+  }
+  for (const a of map.values()) {
+    const l = Math.hypot(a[0], a[1], a[2]) || 1;
+    const x = a[0]/l, y = a[1]/l, z = a[2]/l;
+    for (const i of a[3]) { sn[i*3] = x; sn[i*3+1] = y; sn[i*3+2] = z; }
+  }
+  geo.setAttribute('sNormal', new THREE.BufferAttribute(sn, 3));
+  return geo;
+}
+
+// Colored-ink hull material for the merged buckets: vertex color × dark
+// scalar → lines read as deep tints of the thing they outline, not dead black.
+// Ink is unlit, so world.js dims every entry in `inks` with daylight — else
+// the lines would glow against night-darkened surfaces.
+export const inks = [];   // { mat, base: THREE.Color }
+export function inkBucketMat(opts = {}) {
+  const m = new THREE.MeshBasicMaterial({
+    vertexColors: true, side: THREE.BackSide, fog: true,
+  });
+  m.color.setScalar(0.26);
+  inks.push({ mat: m, base: m.color.clone() });
+  patch(m, { ...opts, outline: opts.outline ?? 0.05 });
+  return m;
+}
+
+// Character outlines: per-part scaled hulls (primitives with centered origins
+// scale into perfect cracks-free hulls). Thickness is absolute per axis.
+let _inkChar = null;
+export function addOutlines(group, t = 0.045) {
+  if (!_inkChar) {
+    _inkChar = new THREE.MeshBasicMaterial({ color: 0x241d17, side: THREE.BackSide, fog: true });
+    inks.push({ mat: _inkChar, base: _inkChar.color.clone() });
+    patch(_inkChar);
+  }
+  const targets = [];
+  group.traverse(o => {
+    if (o.isMesh && !o.userData.noOutline && !(o.geometry instanceof THREE.PlaneGeometry)) targets.push(o);
+  });
+  for (const m of targets) {
+    m.geometry.computeBoundingBox();
+    const bb = m.geometry.boundingBox, s = new THREE.Vector3();
+    bb.getSize(s);
+    if (Math.max(s.x, s.y, s.z) < 0.12) continue;      // too small to ink
+    const hull = new THREE.Mesh(m.geometry, _inkChar);
+    hull.scale.set(
+      1 + (2 * t) / Math.max(s.x, 0.06),
+      1 + (2 * t) / Math.max(s.y, 0.06),
+      1 + (2 * t) / Math.max(s.z, 0.06),
+    );
+    hull.userData.noOutline = true;
+    hull.castShadow = false;
+    m.add(hull);
+  }
 }
 
 // toon material factory — flat colors, stepped light, curvature+wind baked in

@@ -4,11 +4,11 @@
 
 import * as THREE from 'three';
 import { MAP, nearestCopy, wrapDist } from './wrap.js';
-import { ZONES, ZONE } from './palettes.js';
+import { ZONES, ZONE, SKY } from './palettes.js';
 import { toon } from './shader.js';
 
 const clouds = {};   // particleKey -> { pts, mat, base:[], n, kind }
-let gulls = [], herons = [], cats = [], crowd = [];
+let gulls = [], herons = [], cats = [], crowd = [], puffs = [];
 let dyn;
 
 function makeCloud(scene, key, color, n, size, opacity) {
@@ -113,6 +113,28 @@ export function initAmbient(scene) {
     p.userData = { cx: 324 + (i % 3) * 6, cz: 158 + ((i * 7) % 20), r: 1.5 + (i % 3), ph: i * 2.1, sp: 0.12 + (i % 4) * 0.05 };
     crowd.push(p); dyn.add(p);
   }
+
+  // low-poly clouds: fat flattened puffs drifting slowly west→east, high
+  // enough to frame the diorama without shading the ground
+  const cloudMat = toon(SKY.cloud), shadeMat = toon(SKY.cloudShade);
+  for (let i = 0; i < 8; i++) {
+    const g = new THREE.Group();
+    const n = 3 + (i % 3);
+    let cx = 0;
+    for (let k = 0; k < n; k++) {
+      const s = 3.2 + ((i * 5 + k * 3) % 4);
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(0.5, 7, 5), k === n - 1 ? shadeMat : cloudMat);
+      puff.scale.set(s * 2.1, s * (k === n - 1 ? 0.7 : 1.15), s * 1.6);
+      puff.position.set(cx, k === n - 1 ? -1.2 : (k % 2) * 1.4, ((k * 7) % 5) - 2);
+      cx += s * 1.5;
+      g.add(puff);
+    }
+    g.userData = {
+      x: (i * 53) % MAP, z: (i * 149 + 40) % MAP,
+      y: 54 + (i % 4) * 6, sp: 1.0 + (i % 3) * 0.4, ph: i * 1.7,
+    };
+    puffs.push(g); dyn.add(g);
+  }
 }
 
 // weights: vibe.weights indexed by ZONES order; map particle key -> zone index
@@ -170,6 +192,12 @@ export function updateAmbient(dt, G, vibe) {
     c.position.set(p.x, u.y, p.z);
     c.rotation.y = u.ry;
     c.tailMesh.rotation.x = Math.sin(t * 1.7) * 0.4;           // the tail never sleeps
+  }
+  for (const cl of puffs) {
+    const u = cl.userData;
+    const x = (u.x + t * u.sp) % MAP;
+    const p = nearestCopy(x, u.z, G.px, G.pz);
+    cl.position.set(p.x, u.y + Math.sin(t * 0.08 + u.ph) * 1.5, p.z);
   }
   for (const p of crowd) {
     const u = p.userData;

@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { MAP, OFFSETS, wrapDist } from './wrap.js';
 import { ZONE } from './palettes.js';
 import { ROADS, BRIDGES, BUILDINGS, PROPS, SCATTER, WATER, EXTRA_COLLIDERS } from './layout.js';
-import { patch, gradientMap } from './shader.js';
+import { patch, gradientMap, smoothNormals, inkBucketMat, inks, shared } from './shader.js';
 import { zoneWeights } from './vibe.js';
 
 // ── tiny deterministic RNG for authored scatter ──
@@ -349,15 +349,25 @@ const SCATTER_BUILDERS = {
   pinetree(x, z, rng) {
     const P = ZONE.pine.colors;
     const s = 0.8 + rng() * 0.7, h = 5 + rng() * 4;
+    // per-tree hue drift so a forest reads as many greens, not one
+    const pine = new THREE.Color(P.pines).offsetHSL((rng() - 0.5) * 0.02, (rng() - 0.5) * 0.08, (rng() - 0.5) * 0.05);
     put('tree', 'cyl', P.bark, x, h * 0.2, z, { sx: 0.5 * s, sy: h * 0.4, sz: 0.5 * s });
-    put('tree', 'cone', P.pines, x, h * 0.45, z, { sx: 3.2 * s, sy: h * 0.5 });
-    put('tree', 'cone', P.pines, x, h * 0.72, z, { sx: 2.5 * s, sy: h * 0.45 });
+    put('tree', 'cone', pine, x, h * 0.45, z, { sx: 3.2 * s, sy: h * 0.5 });
+    put('tree', 'cone', pine, x, h * 0.72, z, { sx: 2.5 * s, sy: h * 0.45 });
     put('tree', 'cone', P.moss, x, h * 0.97, z, { sx: 1.7 * s, sy: h * 0.4 });
   },
   roundtree(x, z, rng) {
+    const F = ZONE.farms.colors;
     const s = 0.8 + rng() * 0.6;
+    const fall = rng() < 0.14;                        // scattered autumn accents
+    const lo = new THREE.Color(fall ? F.autumn : F.canopy)
+      .offsetHSL((rng() - 0.5) * 0.02, (rng() - 0.5) * 0.1, (rng() - 0.5) * 0.05);
+    const hi = new THREE.Color(fall ? F.autumnHi : F.canopyHi)
+      .offsetHSL((rng() - 0.5) * 0.02, 0, (rng() - 0.5) * 0.04);
     put('tree', 'cyl', '#6B4A36', x, 1.4 * s, z, { sx: 0.6 * s, sy: 2.8 * s, sz: 0.6 * s });
-    put('tree', 'sph', rng() > 0.5 ? '#5E8C4A' : '#6E9C52', x, 3.6 * s, z, { sx: 3.4 * s, sy: 3 * s, sz: 3.4 * s });
+    put('tree', 'sph', lo, x, 3.6 * s, z, { sx: 3.4 * s, sy: 3 * s, sz: 3.4 * s });
+    // sunlit crown cap — the cheap two-tone that sells stylized foliage
+    put('tree', 'sph', hi, x + 0.4 * s, 4.5 * s, z - 0.3 * s, { sx: 2.1 * s, sy: 1.7 * s, sz: 2.1 * s });
   },
   palm(x, z, rng) {
     const P = ZONE.souk.colors;
@@ -437,7 +447,9 @@ function buildGround() {
   const pos = g.attributes.position;
   const col = new Float32Array(pos.count * 3);
   const wts = new Float32Array(16);
-  const c = new THREE.Color(), sand = new THREE.Color('#E4C590'), deep = new THREE.Color('#25626E');
+  const _hsl = { h: 0, s: 0, l: 0 };
+  const c = new THREE.Color(), sand = new THREE.Color('#E4C590'),
+        deep = new THREE.Color(ZONE.harbor.colors.deep).multiplyScalar(0.55);
   const { ZONES } = { ZONES: null };
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i);
@@ -453,6 +465,11 @@ function buildGround() {
     const dToBand = Math.max(WATER.z0 - z, z - WATER.z1);
     if (dToBand < 0) c.copy(deep);
     else if (dToBand < 7) c.lerp(sand, 1 - dToBand / 7);
+    // vibrance + hand-painted blotches: quiet vertex noise so big fields
+    // never read as one flat fill
+    c.getHSL(_hsl);
+    const blotch = Math.sin(x * 0.37 + z * 0.53) * Math.sin(x * 0.11 - z * 0.17);
+    c.setHSL(_hsl.h, Math.min(1, _hsl.s * 1.18), _hsl.l * (1 + blotch * 0.045));
     col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -495,17 +512,73 @@ export function initWorld(scene) {
   meshes.static.castShadow = meshes.static.receiveShadow = true;
   meshes.tree.castShadow = true;
   for (const m of Object.values(meshes)) root.add(m);
+
+  // ink outlines: inverted hulls over the rigid & foliage buckets, expanded
+  // along smoothed normals so low-poly edges stay watertight. Shares the
+  // merged geometry — 2 extra draw calls per copy.
+  for (const [name, sway, swayBase] of [['static', 0, 0.4], ['tree', 0.12, 0.5]]) {
+    smoothNormals(meshes[name].geometry);
+    const hull = new THREE.Mesh(meshes[name].geometry, inkBucketMat({ sway, swayBase, outline: 0.05 }));
+    root.add(hull);
+  }
   for (const live of pendingLive) root.add(live);
 
-  // water band
-  const wg = new THREE.PlaneGeometry(MAP, WATER.z1 - WATER.z0);
+  // ── the bay: painted water — depth gradient, drifting foam scallops at
+  // each bank, gentle waves. All wave frequencies are 2πn/MAP so the surface
+  // is seamless across wrap copies.
+  const wg = new THREE.PlaneGeometry(MAP, WATER.z1 - WATER.z0, 96, 8);
   wg.rotateX(-Math.PI / 2);
   wg.translate(MAP / 2, 0.14, (WATER.z0 + WATER.z1) / 2);
-  W.waterMat = new THREE.MeshToonMaterial({
-    color: ZONE.harbor.colors.water, gradientMap: gradientMap(),
-    transparent: true, opacity: 0.9,
+  const HC = ZONE.harbor.colors;
+  W.waterMat = new THREE.ShaderMaterial({
+    transparent: true, fog: true,
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
+      uTime:    { value: 0 },
+      uNight:   { value: 0 },
+      uDeep:    { value: new THREE.Color(HC.deep) },
+      uShallow: { value: new THREE.Color(HC.shallow) },
+      uFoam:    { value: new THREE.Color(HC.foam) },
+    }]),
+    vertexShader: `
+      uniform float uCurve; uniform vec3 uCamPos; uniform float uTime;
+      varying vec2 vUv; varying vec3 vW;
+      #include <fog_pars_vertex>
+      void main() {
+        vUv = uv;
+        vec4 wpos = modelMatrix * vec4(position, 1.0);
+        wpos.y += sin(wpos.x * 0.7854 + uTime * 1.1) * 0.05
+                + cos(wpos.z * 0.5 + uTime * 0.8) * 0.05;
+        vec2 cd = wpos.xz - uCamPos.xz;
+        wpos.y -= uCurve * dot(cd, cd);
+        vW = wpos.xyz;
+        vec4 mvPosition = viewMatrix * wpos;
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `
+      uniform vec3 uDeep, uShallow, uFoam; uniform float uTime, uNight;
+      varying vec2 vUv; varying vec3 vW;
+      #include <fog_pars_fragment>
+      void main() {
+        float edge = min(vUv.y, 1.0 - vUv.y) * ${(WATER.z1 - WATER.z0).toFixed(1)};
+        vec3 col = mix(uShallow, uDeep, smoothstep(0.4, 13.0, edge));
+        // broad painterly bands drifting through the deep
+        float wob = sin(vW.x * 0.4712 + uTime * 0.5 + sin(vW.z * 0.9)) ;
+        col *= 1.0 + wob * 0.035;
+        // foam: a scalloped bright line hugging each bank, plus broken dashes
+        float scallop = sin(vW.x * 2.042 + uTime * 1.3) * 0.4
+                      + sin(vW.x * 5.1836 - uTime * 0.8) * 0.25;
+        float f1 = 1.0 - smoothstep(0.0, 1.15 + scallop * 0.5, edge);
+        float dash = step(0.25, sin(vW.x * 1.0996 + uTime * 0.55));
+        float f2 = smoothstep(0.7, 0.0, abs(edge - 3.2 - scallop)) * dash * 0.55;
+        col = mix(col, uFoam, clamp(f1 + f2, 0.0, 0.92));
+        col *= 1.0 - uNight * 0.7;
+        gl_FragColor = vec4(col, 0.94);
+        #include <fog_fragment>
+      }`,
   });
-  patch(W.waterMat);
+  W.waterMat.uniforms.uCurve = shared.uCurve;
+  W.waterMat.uniforms.uCamPos = shared.uCamPos;
   root.add(new THREE.Mesh(wg, W.waterMat));
 
   // marsh mirror ponds
@@ -620,6 +693,11 @@ export function updateWorld(dt, G, vibe, camera) {
     s.mat.color.copy(s.color).multiplyScalar(s.lit * 1.5);
   }
 
-  // water breathes very slightly
-  W.waterMat.opacity = 0.86 + Math.sin(G.time * 0.7) * 0.04;
+  // ink outlines are unlit — sink them with the daylight so they never glow
+  const inkF = 0.2 + vibe.daylight * 0.8;
+  for (const k of inks) k.mat.color.copy(k.base).multiplyScalar(inkF);
+
+  // water: advance waves/foam, dim toward night
+  W.waterMat.uniforms.uTime.value = G.time;
+  W.waterMat.uniforms.uNight.value = vibe.night;
 }
