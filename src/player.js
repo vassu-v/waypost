@@ -181,7 +181,9 @@ export function updatePlayer(dt, camera) {
   P.speed += (targetSpeed - P.speed) * Math.min(1, dt * 8);
 
   if (G.moving) {
-    const a = Math.atan2(ix, iz) + P.camYaw + Math.PI;
+    // camera-relative: W walks away from the camera (the extra π here once
+    // inverted every direction)
+    const a = Math.atan2(ix, iz) + P.camYaw;
     const vx = Math.sin(a), vz = Math.cos(a);
     G.heading += wrapAngle(a - G.heading) * Math.min(1, dt * 10);
     let nx = G.px + vx * P.speed * dt;
@@ -250,7 +252,34 @@ export function updatePlayer(dt, camera) {
     2.2 + cy,
     G.pz + Math.cos(P.camYaw) * ch
   );
-  const k = Math.min(1, dt * 6);
+
+  // occlusion: shrink the arm if the sight line pierces a building collider,
+  // so the camera never ends up inside a house (2D ray vs circle, wrap-aware)
+  {
+    const dx = _camPos.x - G.px, dz = _camPos.z - G.pz;
+    const len = Math.hypot(dx, dz);
+    if (len > 0.001) {
+      const ux = dx / len, uz = dz / len;
+      let L = len;
+      for (const c of W.colliders) {
+        const ox = -wrapDelta(c.x, G.px), oz = -wrapDelta(c.z, G.pz);
+        const tc = ox * ux + oz * uz;
+        if (tc < 0 || tc > len + c.r) continue;
+        const d2 = ox * ox + oz * oz - tc * tc;
+        const r = c.r + 0.5;
+        if (d2 >= r * r) continue;
+        const t = tc - Math.sqrt(r * r - d2);
+        if (t > 0.5 && t < L) L = t;
+      }
+      if (L < len) {
+        const f = Math.max(0.12, (L - 0.4) / len);
+        _camPos.set(G.px + dx * f, 2.2 + cy * f, G.pz + dz * f);
+      }
+    }
+  }
+
+  // tight follow — the courier stays centered, no drifting off-frame
+  const k = Math.min(1, dt * 14);
   camera.position.lerp(_camPos, k);
   camera.lookAt(_camTarget);
   shared.uCamPos.value.copy(camera.position);

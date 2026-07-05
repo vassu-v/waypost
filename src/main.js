@@ -56,6 +56,11 @@ UI.initUI({
     AUDIO.playMelody(false);
     refreshBoard();
     UI.startPlay();
+    if (fresh) {
+      // first route: hand the courier the handbook before the world starts asking things of them
+      document.getElementById('btn-help-close').textContent = 'Start delivering';
+      document.getElementById('help').classList.remove('hidden');
+    }
     if (G.tutorial < 3) UI.toast('The postmaster is waiting inside the post office — the building with the brass horn. Press E near her.');
   },
   onQuality: applyQuality,

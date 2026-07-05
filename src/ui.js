@@ -29,7 +29,7 @@ export function initUI(h) {
     $('set-quality').textContent = G.settings.quality === 'high' ? 'High' : 'Low';
     h.onQuality();
   };
-  $('set-help').onclick = () => { $('pause').classList.add('hidden'); $('help').classList.remove('hidden'); };
+  $('set-help').onclick = () => { $('pause').classList.add('hidden'); $('btn-help-close').textContent = 'Back'; $('help').classList.remove('hidden'); };
   $('btn-help-close').onclick = () => { $('help').classList.add('hidden'); if (G.mode === 'pause') $('pause').classList.remove('hidden'); };
   $('btn-credits').onclick = () => { $('pause').classList.add('hidden'); $('credits').classList.remove('hidden'); };
   $('btn-credits-close').onclick = () => {

@@ -105,33 +105,60 @@ function buildRoads() {
 }
 
 function windows(x, y, z, ry, w, h, color, rows = 1, cols = 2, gap = 1.6) {
-  // little glowing quads pasted just off a wall; ry faces outward
+  // little glowing quads pasted just off a wall; ry faces outward.
+  // each gets a dark frame box sunk slightly into the wall behind it.
   const right = { x: Math.cos(ry), z: -Math.sin(ry) };
+  const out = { x: Math.sin(ry), z: Math.cos(ry) };
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
     const off = (c - (cols - 1) / 2) * gap;
-    put('win', 'quad', color, x + right.x * off, y + r * 1.7, z + right.z * off,
-      { ry, sx: w, sy: h });
+    const wx = x + right.x * off, wz = z + right.z * off, wy = y + r * 1.7;
+    put('static', 'box', '#4E4438', wx - out.x * 0.09, wy, wz - out.z * 0.09,
+      { ry, sx: w + 0.22, sy: h + 0.22, sz: 0.1 });
+    put('win', 'quad', color, wx, wy, wz, { ry, sx: w, sy: h });
   }
 }
 
 function house(b) {
   const P = ZONE[b.zone].colors;
-  const wall = P.walls || P.ochre || P.asphalt || '#EADFC8';
-  const roof = P.roofs || P.stripeA || P.wet || '#B0563A';
+  const baseWall = P.walls || P.ochre || P.asphalt || '#EADFC8';
+  const baseRoof = P.roofs || P.stripeA || P.wet || '#B0563A';
   const w = b.w || 7, d = b.d || 6, h = b.h || 7;
+  // every house its own weathering — same palette, slightly different life
+  const jr = mulberry32((b.x * 13 + b.z * 7) | 0);
+  const wall = new THREE.Color(baseWall).offsetHSL((jr() - 0.5) * 0.015, (jr() - 0.5) * 0.06, (jr() - 0.5) * 0.05);
+  const roof = new THREE.Color(baseRoof).offsetHSL((jr() - 0.5) * 0.02, (jr() - 0.5) * 0.08, (jr() - 0.5) * 0.05);
+  const trim = wall.clone().multiplyScalar(0.62);
+
   put('static', 'box', wall, b.x, h / 2, b.z, { sx: w, sy: h, sz: d, ry: b.rot });
+  // plinth: houses sit on the ground, they don't float on it
+  put('static', 'box', trim, b.x, 0.35, b.z, { sx: w + 0.4, sy: 0.7, sz: d + 0.4, ry: b.rot });
   if (b.flat) {
     put('static', 'box', roof, b.x, h + 0.25, b.z, { sx: w + 0.7, sy: 0.5, sz: d + 0.7, ry: b.rot });
   } else {
-    put('static', 'pyr', roof, b.x, h + 1.5, b.z, { sx: Math.max(w, d) * 1.15, sy: 3.2, sz: Math.max(w, d) * 1.15, ry: b.rot });
-    put('static', 'box', '#8A7A62', b.x + Math.sin(b.rot + 1) * 1.4, h + 2.6, b.z + Math.cos(b.rot + 1) * 1.4, { sx: 0.9, sy: 2.4, sz: 0.9 });
+    // hip roof matched to the footprint, resting on a fascia band, with a
+    // chimney planted on the ridge (not hovering beside it)
+    const rh = 2.2 + Math.min(w, d) * 0.22;
+    put('static', 'box', roof.clone().multiplyScalar(0.8), b.x, h + 0.22, b.z, { sx: w + 1.1, sy: 0.44, sz: d + 1.1, ry: b.rot });
+    put('static', 'pyr', roof, b.x, h + 0.44 + rh / 2, b.z, { sx: w * 1.08 + 0.9, sy: rh, sz: d * 1.08 + 0.9, ry: b.rot });
+    const cox = w * 0.18, chy = h + 0.44 + rh * 0.72;
+    put('static', 'box', '#8A7A62', b.x + Math.cos(b.rot) * cox, chy, b.z - Math.sin(b.rot) * cox, { sx: 0.85, sy: rh, sz: 0.85, ry: b.rot });
+    put('static', 'box', '#6E6250', b.x + Math.cos(b.rot) * cox, chy + rh / 2 + 0.08, b.z - Math.sin(b.rot) * cox, { sx: 1.05, sy: 0.18, sz: 1.05, ry: b.rot });
   }
   // door + windows on the "front" (rot faces +z-ish)
-  const fx = b.x + Math.sin(b.rot) * (d / 2 + 0.06), fz = b.z + Math.cos(b.rot) * (d / 2 + 0.06);
+  const ox = Math.sin(b.rot), oz = Math.cos(b.rot);
+  const fx = b.x + ox * (d / 2 + 0.06), fz = b.z + oz * (d / 2 + 0.06);
+  put('static', 'box', trim, fx - ox * 0.05, 1.35, fz - oz * 0.05, { sx: 1.8, sy: 2.7, sz: 0.16, ry: b.rot });
   put('static', 'box', '#6B4A36', fx, 1.2, fz, { sx: 1.4, sy: 2.4, sz: 0.18, ry: b.rot });
+  put('static', 'box', trim, fx + ox * 0.3, 0.09, fz + oz * 0.3, { sx: 1.9, sy: 0.18, sz: 1.0, ry: b.rot });
   const glow = ZONE[b.zone].colors.lamps || ZONE[b.zone].colors.windowglow || '#F2C14E';
   const floors = Math.max(1, Math.floor(h / 4));
   windows(fx, 3.6, fz, b.rot, 0.9, 1.1, glow, floors, 2, 2.2);
+  // side windows so no face of a home is a blank slab
+  for (const s of [1, -1]) {
+    const sr = b.rot + s * Math.PI / 2;
+    const sx2 = b.x + Math.sin(sr) * (w / 2 + 0.06), sz2 = b.z + Math.cos(sr) * (w / 2 + 0.06);
+    windows(sx2, 3.2, sz2, sr, 0.85, 1.05, glow, floors, 2, Math.max(2, d * 0.36));
+  }
   if (b.neon) {
     const nc = Math.random ? null : null; // deterministic below
     const colors = [P.pink, P.cyan, P.windowglow];
@@ -271,8 +298,9 @@ function buildProp(p) {
   const P = ZONE[p.zone].colors;
   switch (p.type) {
     case 'sign': {
+      // signboards are nailed on — they do not dance in the wind
       put('static', 'cyl', '#6B4A36', p.x, 1.2, p.z, { sx: 0.3, sy: 2.4, sz: 0.3 });
-      put('flex', 'box', '#D8C9A8', p.x, 2.5, p.z, { sx: 2.6, sy: 0.9, sz: 0.15, ry: p.rot });
+      put('static', 'box', '#D8C9A8', p.x, 2.5, p.z, { sx: 2.6, sy: 0.9, sz: 0.15, ry: p.rot });
       W.signs.push({ x: p.x, z: p.z, text: p.text });
       break;
     }
@@ -486,9 +514,10 @@ const worldMats = {};
 
 export function initWorld(scene) {
   // bucket materials (created before builders run — mill needs one)
+  // sway is a whisper, not a dance: only foliage tips and hanging cloth move
   worldMats.static = mkToon(0);
-  worldMats.tree   = mkToon(0.12, 0.5);
-  worldMats.flex   = mkToon(0.45, 0.15);
+  worldMats.tree   = mkToon(0.06, 1.2);
+  worldMats.flex   = mkToon(0.2, 0.3);
   W.winMat  = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true });
   W.neonMat = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true });
   patch(W.winMat); patch(W.neonMat);
@@ -640,8 +669,9 @@ export function initWorld(scene) {
   W.sun.castShadow = true;
   W.sun.shadow.mapSize.set(2048, 2048);
   const sc = W.sun.shadow.camera;
-  sc.left = sc.bottom = -85; sc.right = sc.top = 85; sc.near = 10; sc.far = 400;
-  W.sun.shadow.bias = -0.0004;
+  sc.left = sc.bottom = -55; sc.right = sc.top = 55; sc.near = 10; sc.far = 400;
+  W.sun.shadow.bias = -0.0002;
+  W.sun.shadow.normalBias = 2.2;     // kills the smeared self-shadow acne on big flat walls
   scene.add(W.sun, W.sun.target);
 
   buckets.static = buckets.tree = buckets.flex = buckets.win = buckets.neon = null;
