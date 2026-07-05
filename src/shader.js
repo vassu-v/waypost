@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 
 export const shared = {
-  uCurve:  { value: 0.00042 },                    // bend strength (1/units)
+  uCurve:  { value: 0.00078 },                    // bend strength (1/units) — strong enough to read as a tiny planet
   uWind:   { value: 0 },                          // advanced each frame
   uWindAmp:{ value: 1 },                          // weather scales this
   uCamPos: { value: new THREE.Vector3() },

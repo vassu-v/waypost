@@ -174,11 +174,11 @@ export function updatePlayer(dt, camera) {
   G.gliding = G.glider && G.running && (P.keys.Space || false);
 
   let speed = 5.2;
-  if (G.running) speed = 9.0;
+  if (G.running) speed = 10.8;         // sprint: a real burst, not a brisk walk
   if (G.riding) speed = 14.5;
   if (G.gliding) speed = 19;
   const targetSpeed = G.moving ? speed * mag : 0;
-  P.speed += (targetSpeed - P.speed) * Math.min(1, dt * 8);
+  P.speed += (targetSpeed - P.speed) * Math.min(1, dt * 10);
 
   if (G.moving) {
     // camera-relative: W walks away from the camera (the extra π here once
@@ -282,6 +282,13 @@ export function updatePlayer(dt, camera) {
   const k = Math.min(1, dt * 14);
   camera.position.lerp(_camPos, k);
   camera.lookAt(_camTarget);
+
+  // sprint feel: the world widens slightly at speed
+  const wantFov = 55 + Math.min(1, Math.max(0, (P.speed - 6.5) / 9)) * 8;
+  if (Math.abs(camera.fov - wantFov) > 0.05) {
+    camera.fov += (wantFov - camera.fov) * Math.min(1, dt * 4);
+    camera.updateProjectionMatrix();
+  }
   shared.uCamPos.value.copy(camera.position);
 }
 

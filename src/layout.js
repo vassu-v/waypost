@@ -141,6 +141,16 @@ export const SCATTER = [
   { type:'lamppost',  x0:170, x1:235, z0:230, z1:295, n:8,  seed: 91, avoidRoads:false },
   { type:'grasstuft', x0:  0, x1:400, z0:  0, z1:300, n:220, seed:101, avoidRoads:true },
   { type:'roundtree', x0:150, x1:260, z0:352, z1:396, n:14, seed:111, avoidRoads:true },
+  // ── filling the in-between: the meadows connecting zones were dead air ──
+  { type:'bush',      x0:  0, x1:400, z0:  0, z1:300, n:110, seed:121, avoidRoads:true },
+  { type:'flower',    x0:  0, x1:400, z0:  0, z1:300, n:150, seed:131, avoidRoads:true },
+  { type:'roundtree', x0:120, x1:300, z0:188, z1:232, n:16, seed:141, avoidRoads:true },   // mid-meadow belt
+  { type:'roundtree', x0:230, x1:300, z0:100, z1:190, n:12, seed:142, avoidRoads:true },   // spring→souk gap
+  { type:'grasstuft', x0:  0, x1:400, z0:  0, z1:302, n:260, seed:151, avoidRoads:true },
+  { type:'grasstuft', x0:  0, x1:400, z0:346, z1:398, n:90, seed:152, avoidRoads:true },   // south coast band
+  { type:'bush',      x0:  0, x1:400, z0:348, z1:396, n:30, seed:161, avoidRoads:true },
+  { type:'flower',    x0:130, x1:310, z0:190, z1:300, n:70, seed:171, avoidRoads:true },   // harbor meadows bloom
+  { type:'rock',      x0:  0, x1:400, z0:346, z1:398, n:14, seed:181, avoidRoads:true },
 ];
 
 // ── Ferry: circles the whole bay band east-west (crosses the wrap — visibly) ──

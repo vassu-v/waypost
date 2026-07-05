@@ -218,8 +218,10 @@ function stall(b) {
   const P = ZONE.souk.colors;
   for (const [dx, dz] of [[-1.6, -1.2], [1.6, -1.2], [-1.6, 1.2], [1.6, 1.2]])
     put('static', 'cyl', '#8A6A48', b.x + dx, 1.1, b.z + dz, { sx: 0.3, sy: 2.2, sz: 0.3, ry: b.rot });
-  for (let i = -2; i <= 2; i++)
-    put('flex', 'box', i % 2 ? P.stripeA : P.stripeB, b.x + i * 0.8, 2.5, b.z, { sx: 0.8, sy: 0.12, sz: 3.4, ry: b.rot, rx: 0.12 });
+  for (let i = -2; i <= 2; i++)  // slats offset along the stall's local x, not world x
+    put('flex', 'box', i % 2 ? P.stripeA : P.stripeB,
+      b.x + Math.cos(b.rot) * i * 0.8, 2.5, b.z - Math.sin(b.rot) * i * 0.8,
+      { sx: 0.8, sy: 0.12, sz: 3.4, ry: b.rot, rx: 0.12 });
   put('static', 'box', '#9A7A52', b.x, 0.9, b.z, { sx: 3, sy: 0.8, sz: 2, ry: b.rot });
   put('static', 'box', P.stripeA, b.x - 0.6, 1.5, b.z, { sx: 0.8, sy: 0.5, sz: 0.8, ry: b.rot });
   put('static', 'sph', P.stripeB, b.x + 0.7, 1.5, b.z + 0.3, { sx: 0.7, sy: 0.7, sz: 0.7 });
@@ -398,14 +400,22 @@ const SCATTER_BUILDERS = {
     put('tree', 'sph', hi, x + 0.4 * s, 4.5 * s, z - 0.3 * s, { sx: 2.1 * s, sy: 1.7 * s, sz: 2.1 * s });
   },
   palm(x, z, rng) {
-    const P = ZONE.souk.colors;
     const h = 4.5 + rng() * 2, lean = rng() * 0.3 - 0.15;
     put('tree', 'cyl', '#9A7A52', x, h / 2, z, { sx: 0.4, sy: h, sz: 0.4, rz: lean });
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2 + rng();
-      put('flex', 'box', '#4E7A42', x + Math.cos(a) * 1.1, h + 0.3, z + Math.sin(a) * 1.1,
-        { sx: 2.4, sy: 0.1, sz: 0.5, ry: -a, rz: 0.45 });
+    // fronds droop outward and DOWN (positive rz lifted the tips — the
+    // inverted-umbrella look). Two tiers so the crown reads full.
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + rng();
+      const g = new THREE.Color('#4E7A42').offsetHSL(0, (rng() - 0.5) * 0.1, (rng() - 0.5) * 0.06);
+      put('flex', 'box', g, x + Math.cos(a) * 1.15, h + 0.35, z + Math.sin(a) * 1.15,
+        { sx: 2.5, sy: 0.09, sz: 0.55, ry: -a, rz: -0.38 });
+      if (i % 2 === 0)
+        put('flex', 'box', g, x + Math.cos(a + 0.5) * 0.7, h + 0.6, z + Math.sin(a + 0.5) * 0.7,
+          { sx: 1.7, sy: 0.08, sz: 0.45, ry: -(a + 0.5), rz: -0.16 });
     }
+    // coconuts, because someone will look
+    put('static', 'sph', '#6B4A36', x + 0.28, h + 0.1, z + 0.1, { sx: 0.34, sy: 0.34, sz: 0.34 });
+    put('static', 'sph', '#5A4A38', x - 0.2, h + 0.05, z - 0.22, { sx: 0.3, sy: 0.3, sz: 0.3 });
   },
   fieldrow(x, z, rng) {
     const P = ZONE.farms.colors;
@@ -434,7 +444,25 @@ const SCATTER_BUILDERS = {
     put('static', 'sph', '#8A8478', x, 0.3 + rng() * 0.3, z, { sx: 1 + rng() * 1.5, sy: 0.8 + rng(), sz: 1 + rng() * 1.5, ry: rng() * 3 });
   },
   grasstuft(x, z, rng) {
-    put('flex', 'cone', '#7A9A5A', x, 0.45, z, { sx: 0.8, sy: 0.9, ry: rng() * 3 });
+    const g = new THREE.Color('#7A9A5A').offsetHSL((rng() - 0.5) * 0.03, (rng() - 0.5) * 0.15, (rng() - 0.5) * 0.08);
+    put('flex', 'cone', g, x, 0.45, z, { sx: 0.8, sy: 0.9, ry: rng() * 3 });
+    put('flex', 'cone', g, x + 0.5, 0.32, z + 0.3, { sx: 0.55, sy: 0.65, ry: rng() * 3 });
+  },
+  bush(x, z, rng) {
+    const g = new THREE.Color(rng() > 0.5 ? '#5E8C4A' : '#6E9C52').offsetHSL(0, (rng() - 0.5) * 0.12, (rng() - 0.5) * 0.07);
+    const s = 0.7 + rng() * 0.8;
+    put('tree', 'sph', g, x, 0.55 * s, z, { sx: 1.8 * s, sy: 1.2 * s, sz: 1.8 * s });
+    put('tree', 'sph', g.clone().offsetHSL(0, 0.04, 0.05), x + 0.7 * s, 0.42 * s, z + 0.4 * s, { sx: 1.1 * s, sy: 0.8 * s, sz: 1.1 * s });
+  },
+  flower(x, z, rng) {
+    // little clusters of colour breaking up the green
+    const cols = ['#E8B04B', '#C1502E', '#F25C9B', '#F5EBDC', '#7FB3C8'];
+    const c = cols[(rng() * cols.length) | 0];
+    for (let i = 0; i < 3 + (rng() * 3 | 0); i++) {
+      const fx = x + (rng() - 0.5) * 2.2, fz = z + (rng() - 0.5) * 2.2, fh = 0.35 + rng() * 0.25;
+      put('flex', 'cyl', '#5E7A4A', fx, fh / 2, fz, { sx: 0.06, sy: fh, sz: 0.06 });
+      put('flex', 'sph', c, fx, fh + 0.08, fz, { sx: 0.22, sy: 0.18, sz: 0.22 });
+    }
   },
   lamppost(x, z) { lamppost(x, z); },
 };
@@ -496,8 +524,9 @@ function buildGround() {
     // vibrance + hand-painted blotches: quiet vertex noise so big fields
     // never read as one flat fill
     c.getHSL(_hsl);
-    const blotch = Math.sin(x * 0.37 + z * 0.53) * Math.sin(x * 0.11 - z * 0.17);
-    c.setHSL(_hsl.h, Math.min(1, _hsl.s * 1.18), _hsl.l * (1 + blotch * 0.045));
+    const blotch = Math.sin(x * 0.37 + z * 0.53) * Math.sin(x * 0.11 - z * 0.17)
+                 + 0.6 * Math.sin(x * 0.051 + z * 0.043) * Math.sin(x * 0.023 - z * 0.067);
+    c.setHSL(_hsl.h + blotch * 0.006, Math.min(1, _hsl.s * 1.28), _hsl.l * (1 + blotch * 0.07));
     col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -670,8 +699,8 @@ export function initWorld(scene) {
   W.sun.shadow.mapSize.set(2048, 2048);
   const sc = W.sun.shadow.camera;
   sc.left = sc.bottom = -55; sc.right = sc.top = 55; sc.near = 10; sc.far = 400;
-  W.sun.shadow.bias = -0.0002;
-  W.sun.shadow.normalBias = 2.2;     // kills the smeared self-shadow acne on big flat walls
+  W.sun.shadow.bias = -0.0003;
+  W.sun.shadow.normalBias = 1.0;     // enough to kill wall acne without peter-panning contact shadows
   scene.add(W.sun, W.sun.target);
 
   buckets.static = buckets.tree = buckets.flex = buckets.win = buckets.neon = null;
